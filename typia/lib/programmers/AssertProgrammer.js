@@ -1,0 +1,101 @@
+import ts from "typescript";
+import { IdentifierFactory } from "../factories/IdentifierFactory";
+import { StatementFactory } from "../factories/StatementFactory";
+import { TypeFactory } from "../factories/TypeFactory";
+import { CheckerProgrammer } from "./CheckerProgrammer";
+import { IsProgrammer } from "./IsProgrammer";
+import { FunctionImporter } from "./helpers/FunctionImporeter";
+import { OptionPredicator } from "./helpers/OptionPredicator";
+import { check_object } from "./internal/check_object";
+export var AssertProgrammer;
+(function (AssertProgrammer) {
+    AssertProgrammer.write = (project) => (modulo) => (equals) => (type, name) => {
+        const importer = new FunctionImporter();
+        const is = IsProgrammer.write(project)(modulo, true)(equals)(type, name !== null && name !== void 0 ? name : TypeFactory.getFullName(project.checker)(type));
+        const assert = CheckerProgrammer.write(project)({
+            prefix: "$a",
+            path: true,
+            trace: true,
+            numeric: OptionPredicator.numeric(project.options),
+            equals,
+            atomist: (explore) => (tuple) => (input) => [
+                tuple.expression,
+                ...tuple.tags.map((tag) => ts.factory.createLogicalOr(tag.expression, create_guard_call(importer)(explore.from === "top"
+                    ? ts.factory.createTrue()
+                    : ts.factory.createIdentifier("_exceptionable"))(ts.factory.createIdentifier(explore.postfix
+                    ? `_path + ${explore.postfix}`
+                    : "_path"), tag.expected, input))),
+            ].reduce((x, y) => ts.factory.createLogicalAnd(x, y)),
+            combiner: combiner(equals)(importer),
+            joiner: joiner(equals)(importer),
+            success: ts.factory.createTrue(),
+            addition: () => importer.declare(modulo),
+        })(importer)(type, name);
+        return ts.factory.createArrowFunction(undefined, undefined, [
+            IdentifierFactory.parameter("input", TypeFactory.keyword("any")),
+        ], ts.factory.createTypeReferenceNode(name !== null && name !== void 0 ? name : TypeFactory.getFullName(project.checker)(type)), undefined, ts.factory.createBlock([
+            StatementFactory.constant("__is", is),
+            ts.factory.createIfStatement(ts.factory.createStrictEquality(ts.factory.createFalse(), ts.factory.createCallExpression(ts.factory.createIdentifier("__is"), undefined, [ts.factory.createIdentifier("input")])), ts.factory.createExpressionStatement(ts.factory.createCallExpression(assert, undefined, [
+                ts.factory.createIdentifier("input"),
+                ts.factory.createStringLiteral("$input"),
+                ts.factory.createTrue(),
+            ])), undefined),
+            ts.factory.createReturnStatement(ts.factory.createIdentifier(`input`)),
+        ], true));
+    };
+    const combiner = (equals) => (importer) => (explore) => {
+        if (explore.tracable === false)
+            return IsProgrammer.configure({
+                object: assert_object(equals)(importer),
+                numeric: true,
+            })(importer).combiner(explore);
+        const path = explore.postfix
+            ? `_path + ${explore.postfix}`
+            : "_path";
+        return (logic) => (input, binaries, expected) => logic === "and"
+            ? binaries
+                .map((binary) => binary.combined
+                ? binary.expression
+                : ts.factory.createLogicalOr(binary.expression, create_guard_call(importer)(explore.source === "top"
+                    ? ts.factory.createTrue()
+                    : ts.factory.createIdentifier("_exceptionable"))(ts.factory.createIdentifier(path), expected, input)))
+                .reduce(ts.factory.createLogicalAnd)
+            : ts.factory.createLogicalOr(binaries
+                .map((binary) => binary.expression)
+                .reduce(ts.factory.createLogicalOr), create_guard_call(importer)(explore.source === "top"
+                ? ts.factory.createTrue()
+                : ts.factory.createIdentifier("_exceptionable"))(ts.factory.createIdentifier(path), expected, input));
+    };
+    const assert_object = (equals) => (importer) => check_object({
+        equals,
+        assert: true,
+        undefined: true,
+        reduce: ts.factory.createLogicalAnd,
+        positive: ts.factory.createTrue(),
+        superfluous: (value) => create_guard_call(importer)()(ts.factory.createAdd(ts.factory.createIdentifier("_path"), ts.factory.createCallExpression(importer.use("join"), undefined, [ts.factory.createIdentifier("key")])), "undefined", value),
+        halt: (expr) => ts.factory.createLogicalOr(ts.factory.createStrictEquality(ts.factory.createFalse(), ts.factory.createIdentifier("_exceptionable")), expr),
+    })(importer);
+    const joiner = (equals) => (importer) => ({
+        object: assert_object(equals)(importer),
+        array: (input, arrow) => ts.factory.createCallExpression(IdentifierFactory.access(input)("every"), undefined, [arrow]),
+        failure: (value, expected, explore) => create_guard_call(importer)((explore === null || explore === void 0 ? void 0 : explore.from) === "top"
+            ? ts.factory.createTrue()
+            : ts.factory.createIdentifier("_exceptionable"))(ts.factory.createIdentifier((explore === null || explore === void 0 ? void 0 : explore.postfix)
+            ? `_path + ${explore.postfix}`
+            : "_path"), expected, value),
+        full: equals
+            ? undefined
+            : (condition) => (input, expected, explore) => ts.factory.createLogicalOr(condition, create_guard_call(importer)(explore.from === "top"
+                ? ts.factory.createTrue()
+                : ts.factory.createIdentifier("_exceptionable"))(ts.factory.createIdentifier("_path"), expected, input)),
+    });
+    const create_guard_call = (importer) => (exceptionable) => (path, expected, value) => ts.factory.createCallExpression(importer.use("guard"), undefined, [
+        exceptionable !== null && exceptionable !== void 0 ? exceptionable : ts.factory.createIdentifier("_exceptionable"),
+        ts.factory.createObjectLiteralExpression([
+            ts.factory.createPropertyAssignment("path", path),
+            ts.factory.createPropertyAssignment("expected", ts.factory.createStringLiteral(expected)),
+            ts.factory.createPropertyAssignment("value", value),
+        ], true),
+    ]);
+})(AssertProgrammer || (AssertProgrammer = {}));
+//# sourceMappingURL=AssertProgrammer.js.map
