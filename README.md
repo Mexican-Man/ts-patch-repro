@@ -23,4 +23,4 @@ The build should succeed.
 
 ## Actual behavior
 
-The build fails with the error above.
+The build fails with the error above. It seems to me that the `transform.js` file [*should* have a default export](https://github.com/Mexican-Man/ts-patch-repro/blob/main/typia/lib/transform.js#L18).
